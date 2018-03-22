@@ -574,21 +574,19 @@
 
   /**
    * Configures the current instance of ApiClient with a fresh OAuth JWT access token from DocuSign
-   * @param privateKeyFilename the filename of the RSA private key
+   * @param privateKey the buffer containing the RSA private key
    * @param oAuthBasePath DocuSign OAuth base path (account-d.docusign.com for the developer sandbox
-   *   			and account.docusign.com for the production platform)
+   *            and account.docusign.com for the production platform)
    * @param clientId DocuSign OAuth Client Id (AKA Integrator Key)
    * @param userId DocuSign user Id to be impersonated (This is a UUID)
    * @param expiresIn in seconds for the token time-to-live
    * @param callback the callback function.
    */
-  exports.prototype.configureJWTAuthorizationFlow = function(privateKeyFilename, oAuthBasePath, clientId, userId, expiresIn, callback) {
+  exports.prototype.configureJWTAuthFlowKeyBuf = function configureJWTAuthFlowKeyBuf(privateKey, oAuthBasePath, clientId, userId, expiresIn, callback) {
     var _this = this;
     var jwt = require('jsonwebtoken')
-      , fs  = require('fs')
-      , private_key = fs.readFileSync(privateKeyFilename)
-      , now         = Math.floor(Date.now() / 1000)
-      , later       = now + expiresIn;
+      , now = Math.floor(Date.now() / 1000)
+      , later = now + expiresIn;
 
     var jwt_payload = {
       iss: clientId,
@@ -599,7 +597,7 @@
       scope: "signature"
     };
 
-    var assertion = jwt.sign(jwt_payload, private_key, {algorithm: 'RS256'});
+    var assertion = jwt.sign(jwt_payload, privateKey, {algorithm: 'RS256'});
 
     superagent('post', 'https://' + oAuthBasePath + '/oauth/token')
       .timeout(this.timeout)
@@ -608,7 +606,7 @@
         'assertion': assertion,
         'grant_type': 'urn:ietf:params:oauth:grant-type:jwt-bearer'
       })
-      .end(function(err, res) {
+      .end(function (err, res) {
         if (callback) {
           if (!err && res.body && res.body.access_token) {
             _this.addDefaultHeader('Authorization', 'Bearer ' + res.body.access_token);
@@ -616,6 +614,23 @@
           callback(err, res);
         }
       });
+  };
+
+  /**
+   * Configures the current instance of ApiClient with a fresh OAuth JWT access token from DocuSign
+   * @param privateKeyFilename the filename of the RSA private key
+   * @param oAuthBasePath DocuSign OAuth base path (account-d.docusign.com for the developer sandbox
+   *            and account.docusign.com for the production platform)
+   * @param clientId DocuSign OAuth Client Id (AKA Integrator Key)
+   * @param userId DocuSign user Id to be impersonated (This is a UUID)
+   * @param expiresIn in seconds for the token time-to-live
+   * @param callback the callback function.
+   */
+  exports.prototype.configureJWTAuthorizationFlow = function (privateKeyFilename, oAuthBasePath, clientId, userId, expiresIn, callback) {
+    var _this = this;
+    var fs = require('fs')
+      , private_key = fs.readFileSync(privateKeyFilename);
+    _this.configureJWTAuthFlowKeyBuf(private_key, oAuthBasePath, clientId, userId, expiresIn, callback);
   };
 
   /**
